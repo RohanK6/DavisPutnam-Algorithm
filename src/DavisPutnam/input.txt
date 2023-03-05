@@ -1,0 +1,8 @@
+P Q -R
+P -Q R
+-P Q
+-Q R V
+-R W
+-W -X
+-W X
+0
