@@ -2,6 +2,7 @@ package DavisPutnam;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
@@ -9,8 +10,8 @@ import java.nio.file.Paths;
 import java.util.*;
 
 public class Main {
-
-    private static ArrayList<String> atoms = new ArrayList<String>();
+    private static TreeSet<String> allAtoms = new TreeSet<String>(new NumericStringComparator());
+    private static TreeSet<String> atoms = new TreeSet<String>(new NumericStringComparator());
     private static Stack<State> states = new Stack<State>();
 
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException {
@@ -27,7 +28,7 @@ public class Main {
         while (in.hasNextLine()) {
             /* Check if it's 0, so we stop parsing */
             String line = in.nextLine();
-            if (line.equals("0")) {
+            if (line.trim().equals("0")) {
                 break;
             }
             /* Split each line into their own clause */
@@ -35,15 +36,19 @@ public class Main {
             String[] tokens = line.split(" ");
             for (String t : tokens) {
                 clause.add(t);
-                if (t.length() > 1) {
+                if (t.charAt(0) == '-') {
                     String atom = t.substring(1);
+                    allAtoms.add(atom);
                     atoms.add(atom);
                 } else {
+                    allAtoms.add(t);
                     atoms.add(t);
                 }
             }
             clauses.add(clause);
         }
+        
+        System.out.println(atoms);
 
         /* We have the initial stateNumber (0), clauses, and bindings. We want to keep track of States
             in case we have to "pop" and revert back.
@@ -52,30 +57,79 @@ public class Main {
         states.push(state);
 
         /* Now, we want to run davis putnam */
-        davisPutnamAlgorithm();
+        LinkedHashMap<String, Boolean> dpResults = davisPutnamAlgorithm();
+
+        /* Print the results */
+        System.out.println("------------------------------");
+
+        if (!dpResults.isEmpty()) {
+            // Check if atoms is not empty. If it is, insert them into the bindings as true
+            for (String atom : allAtoms) {
+                if (!dpResults.containsKey(atom)) {
+                    System.out.println("Atom " + atom + " is not in the bindings. Adding it as true.");
+                    dpResults.put(atom, true);
+                }
+            }
+        }
+
+        /* Make a sorted copy of results */
+        TreeMap<String, Boolean> copiedResults = new TreeMap<String, Boolean>(dpResults);
+        TreeMap<String, Boolean> sortedResults = new TreeMap<String, Boolean>(new NumericStringComparator());
+        sortedResults.putAll(copiedResults);
+
+        System.out.println("Back in Main");
+        System.out.println("Results: " + sortedResults);
+
+        // We now want to write the results to a file, with the format of "atom = T/F"
+        // After the results, we want to write a newLine with just "0"
+        // After that, we want to copy over the contents from the input file after the "0"
+
+        File outputFile = new File("output.txt");
+        PrintWriter out = new PrintWriter(outputFile);
+        if (sortedResults.size() > 0) {
+            for (String atom : sortedResults.keySet()) {
+                out.println(atom + " " + ((sortedResults.get(atom) == true) ? "T" : "F"));
+            }
+        }
+        out.println("0");
+        while (in.hasNextLine()) {
+            out.println(in.nextLine());
+        }
+        out.close();
+
     }
 
-    public static void davisPutnamAlgorithm() {
+    public static LinkedHashMap<String, Boolean> davisPutnamAlgorithm() {
         State baseState = states.peek();
         int tries = 0;
         while (true) {
+            System.out.println("-----------------------------");
+            System.out.println("On try: " + tries);
             /* Get the info from the current state */
             State currentState = states.peek();
             tries++;
             int stateNumber = currentState.getStateNumber();
             ArrayList<ArrayList<String>> clauses = currentState.getClauses();
-            HashMap<String, Boolean> bindings = currentState.getBindings();
+            LinkedHashMap<String, Boolean> bindings = currentState.getBindings();
+            LinkedHashMap<String, Boolean> failedBindings = currentState.getFailedBindings();
             System.out.println(currentState);
-            System.out.println("Failed: ");
-            System.out.println("-----------------------------");
+            System.out.println("Failed: " + failedBindings);
+            if (tries == 1000) break;
 
-            /* Base conditions */
-            if (clauses.isEmpty()) break;
-
-            if (tries == 10) break;
+            // For all atoms that are NOT in bindings, set atoms to a new TreeSet
+            TreeSet<String> newAtoms = new TreeSet<String>(new NumericStringComparator());
+            for (String atom : allAtoms) {
+                if (!bindings.containsKey(atom)) {
+                    newAtoms.add(atom);
+                }
+            }
+            atoms = newAtoms;
+            System.out.println(atoms);
 
             /* Attempt to run davis putnam on the current state */
-            MixedObjectReturnType results = davisPutnam(clauses, bindings);
+            MixedObjectReturnType results = davisPutnam(clauses, bindings, failedBindings);
+
+            System.out.println(results);
             
             boolean resultingClausesHaveContradictions = false;
             // Check if the resulting clauses have no contradictions
@@ -85,7 +139,7 @@ public class Main {
                 if (clause.size() == 1) {
                     String atom = clause.get(0);
                     String oppositeAtom = "";
-                    if (atom.length() > 1) {
+                    if (atom.charAt(0) == '-') {
                         oppositeAtom = atom.substring(1);
                     } else {
                         oppositeAtom = "-" + atom;
@@ -104,36 +158,101 @@ public class Main {
                     }
                     if (resultingClausesHaveContradictions) break;
                 }
-                if (resultingClausesHaveContradictions) break;
             }
 
             boolean containsEmptyClause = false;
             // Check if the resulting clauses have an empty clause
-            for (ArrayList<String> clause : clauses) {
+            for (ArrayList<String> clause : results.clauses) {
                 if (clause.size() == 0) {
                     containsEmptyClause = true;
                     break;
                 }
             }
 
+            // System.out.println("Remainaing atoms: ");
+            // for (String atom : atoms) {
+            //     System.out.println(atom);
+            // }
+
 
             // We were met with no issues running the algorithm on the current state
             if (results.isPossible && !resultingClausesHaveContradictions && !containsEmptyClause) {
+                System.out.println("Success!");
                 // We want to consider it a "success" and move on
                 int nextStateNumber = stateNumber + 1;
                 State successState = new State(nextStateNumber, results.clauses, results.bindings);
                 states.push(successState);
+
+                /* Base conditions */
+                if (results.clauses.isEmpty()) return results.bindings;
+                
             } else {
+                System.out.println("Failure!");
+                // Clear the failed bindings for the current state since we're reverting and changing previous bindings
+                currentState.setFailedBindings(new LinkedHashMap<String, Boolean>());
+
                 // Clearly, the current state is unfeasible, so we have to "revert"
                 states.pop();
                 // If we have no base states, go back to the initial
                 if (states.size() == 0) states.push(baseState);
+
+                // We want to record the failed binding for the state we're reverting to
+                State currentStateToRevertTo = states.peek();
+                LinkedHashMap<String, Boolean> failedBindingsForState = currentStateToRevertTo.getFailedBindings();
+                // We want to add the failed binding to the state (the most recent in bindings):
+                String failedBinding = "";
+                Boolean failedBindingValue = false;
+                for (Map.Entry<String, Boolean> entry : bindings.entrySet()) {
+                    failedBinding = entry.getKey();
+                    failedBindingValue = entry.getValue();
+                }
+                // atoms.add(failedBinding);
+                System.out.println("Adding " + failedBinding + " back to atoms");
+
+                // check that the failed binding is not already in the failed bindings for the state
+                while (failedBindingsForState.containsKey(failedBinding)) {
+                    // This means we've exhausted both true and false in our given state, so we need to revert once more.
+                    // If we're at the base state (i.e. we've exhausted all possibilities), then we're done.
+                     if (states.size() == 1) {
+                          break;
+                     }
+
+                     // We already failed TRUE for this binding, and now we've failed FALSE, so we need to revert once more
+                    State newCurrentState = states.peek();                    // We want to get the bindings for this state and add the last binding to the failed bindings
+                    LinkedHashMap<String, Boolean> bindingsForNewCurrentState = newCurrentState.getBindings();
+                    for (Map.Entry<String, Boolean> entry : bindingsForNewCurrentState.entrySet()) {
+                        failedBinding = entry.getKey();
+                        failedBindingValue = entry.getValue();
+                    }
+                    System.out.println("Adding " + failedBinding + " back to atoms");
+                    // atoms.add(failedBinding);
+                    states.pop();
+
+                    // We want to add the failed binding to the failed bindings for the state
+                    State currentStateToRevertTo2 = states.peek();
+                    LinkedHashMap<String, Boolean> failedBindingsForState2 = currentStateToRevertTo2.getFailedBindings();
+                    failedBindingsForState2.put(failedBinding, failedBindingValue);
+
+                    currentStateToRevertTo2.setFailedBindings(failedBindingsForState2);
+
+                    for (Map.Entry<String, Boolean> entry : bindings.entrySet()) {
+                        failedBinding = entry.getKey();
+                        failedBindingValue = entry.getValue();
+                    }
+                }
+
+                // We want to add the failed binding to the failed bindings for the state
+                failedBindingsForState.put(failedBinding, failedBindingValue);
+
+                currentStateToRevertTo.setFailedBindings(failedBindingsForState);
             }
         }
+        System.out.println("No solution found.");
+        return new LinkedHashMap<String, Boolean>();
     }
 
-    public static MixedObjectReturnType davisPutnam(ArrayList<ArrayList<String>> clauses, HashMap<String, Boolean> bindings) {
-        MixedObjectReturnType easyCaseResults = tryAndHandleEasyCase(clauses, bindings);
+    public static MixedObjectReturnType davisPutnam(ArrayList<ArrayList<String>> clauses, LinkedHashMap<String, Boolean> bindings, LinkedHashMap<String, Boolean> failedBindings) {
+        MixedObjectReturnType easyCaseResults = tryAndHandleEasyCase(clauses, bindings, failedBindings);
         if (easyCaseResults.isPossible) return easyCaseResults;
         // We have no easy case, so we perform the actual algorithm
 
@@ -141,8 +260,12 @@ public class Main {
         if (atoms.size() == 0) return new MixedObjectReturnType(true, clauses, bindings);
 
         // Try the "earliest" (first alphabetical atom available) to be TRUE
-        String atomToTry = atoms.get(0);
+        String atomToTry = atoms.first();
         boolean atomValueToTry = true;
+        if (failedBindings.containsKey(atomToTry)) {
+            // We've already tried this atom, so we want to try the opposite value
+            atomValueToTry = !failedBindings.get(atomToTry);
+        }
 
         /* Make copies */
         ArrayList<ArrayList<String>> copyClauses = new ArrayList<ArrayList<String>>();
@@ -151,7 +274,7 @@ public class Main {
             copyClause.addAll(clause);
             copyClauses.add(copyClause);
         }
-        HashMap<String, Boolean> copyBindings = new HashMap<String, Boolean>();
+        LinkedHashMap<String, Boolean> copyBindings = new LinkedHashMap<String, Boolean>();
         copyBindings.putAll(bindings);
 
         copyBindings.put(atomToTry, atomValueToTry);
@@ -161,7 +284,7 @@ public class Main {
         return new MixedObjectReturnType(true, copyClauses, copyBindings);
     }
 
-    public static MixedObjectReturnType tryAndHandleEasyCase(ArrayList<ArrayList<String>> clauses, HashMap<String, Boolean> bindings) {
+    public static MixedObjectReturnType tryAndHandleEasyCase(ArrayList<ArrayList<String>> clauses, LinkedHashMap<String, Boolean> bindings, LinkedHashMap<String, Boolean> failedBindings) {
         /* Make copies */
         ArrayList<ArrayList<String>> copyClauses = new ArrayList<ArrayList<String>>();
         for (ArrayList<String> clause : clauses) {
@@ -169,7 +292,7 @@ public class Main {
             copyClause.addAll(clause);
             copyClauses.add(copyClause);
         }
-        HashMap<String, Boolean> copyBindings = new HashMap<String, Boolean>();
+        LinkedHashMap<String, Boolean> copyBindings = new LinkedHashMap<String, Boolean>();
         copyBindings.putAll(bindings);
 
         boolean foundEasyCase = false;
@@ -190,12 +313,17 @@ public class Main {
                 atoms.remove(justTheLetter);
                 easyAtomLetter = justTheLetter;
 
-                if (isNegated) {
-                    // We want to bind it to false
-                    copyBindings.put(justTheLetter, false);
+                if (failedBindings.containsKey(justTheLetter)) {
+                    copyBindings.put(justTheLetter, !failedBindings.get(justTheLetter));
                 } else {
-                    // We want to bind it to true
-                    copyBindings.put(justTheLetter, true);
+
+                    if (isNegated) {
+                        // We want to bind it to false
+                        copyBindings.put(justTheLetter, false);
+                    } else {
+                        // We want to bind it to true
+                        copyBindings.put(justTheLetter, true);
+                    }
                 }
 
                 foundEasyCase = true;
@@ -216,7 +344,7 @@ public class Main {
         return new MixedObjectReturnType(true, copyClauses, copyBindings);
     }
 
-    public static ArrayList<ArrayList<String>> updateClausesFromBindings(ArrayList<ArrayList<String>> clauses, HashMap<String, Boolean> bindings, String atomLetter) {
+    public static ArrayList<ArrayList<String>> updateClausesFromBindings(ArrayList<ArrayList<String>> clauses, LinkedHashMap<String, Boolean> bindings, String atomLetter) {
         ArrayList<ArrayList<String>> newClauses = new ArrayList<ArrayList<String>>();
         for (ArrayList<String> clause : clauses) {
             ArrayList<String> newClause = new ArrayList<String>();
@@ -246,7 +374,9 @@ public class Main {
                     newClause.add(atom);
                 }
             }
-            if (newClause != null) newClauses.add(newClause);
+            if (newClause != null) {
+                newClauses.add(newClause);
+            }
         }
 
         // Now, for each atom in atoms, if it is NOT present in any of the clauses, we can remove it from atoms
@@ -283,11 +413,31 @@ public class Main {
     private static class MixedObjectReturnType {
         boolean isPossible;
         public ArrayList<ArrayList<String>> clauses;
-        public HashMap<String, Boolean> bindings;
-        public MixedObjectReturnType(boolean isPossible, ArrayList<ArrayList<String>> clauses, HashMap<String, Boolean> bindings) {
+        public LinkedHashMap<String, Boolean> bindings;
+        public MixedObjectReturnType(boolean isPossible, ArrayList<ArrayList<String>> clauses, LinkedHashMap<String, Boolean> bindings) {
             this.isPossible = isPossible;
             this.clauses = clauses;
             this.bindings = bindings;
+        }
+
+        @Override
+        public String toString() {
+            return "MixedObjectReturnType [isPossible=" + isPossible + ", clauses=" + clauses + ", bindings=" + bindings + "]";
+        }
+    }
+
+    public static class NumericStringComparator implements Comparator<String> {
+        @Override
+        public int compare(String s1, String s2) {
+            try {
+                int i1 = Integer.parseInt(s1);
+                int i2 = Integer.parseInt(s2);
+                return Integer.compare(i1, i2);
+            } catch (NumberFormatException e) {
+                // If either s1 or s2 cannot be parsed as an integer,
+                // fall back to string comparison.
+                return s1.compareTo(s2);
+            }
         }
     }
 }

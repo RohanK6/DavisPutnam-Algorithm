@@ -2,16 +2,19 @@ package DavisPutnam;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 public class State {
     int stateNumber;
     ArrayList<ArrayList<String>> clauses;
-    HashMap<String, Boolean> bindings;
+    LinkedHashMap<String, Boolean> bindings;
+    LinkedHashMap<String, Boolean> failedBindings;
 
-    public State(int s, ArrayList<ArrayList<String>> c, HashMap<String, Boolean> b) {
+    public State(int s, ArrayList<ArrayList<String>> c, LinkedHashMap<String, Boolean> b) {
         stateNumber = s;
         clauses = c;
         bindings = b;
+        failedBindings = new LinkedHashMap<>();
     }
 
     public int getStateNumber() {
@@ -22,8 +25,16 @@ public class State {
         return clauses;
     }
 
-    public HashMap<String, Boolean> getBindings() {
+    public LinkedHashMap<String, Boolean> getBindings() {
         return bindings;
+    }
+
+    public void setFailedBindings(LinkedHashMap<String, Boolean> failedBindings) {
+        this.failedBindings = failedBindings;
+    }
+
+    public LinkedHashMap<String, Boolean> getFailedBindings() {
+        return failedBindings;
     }
 
     @Override
