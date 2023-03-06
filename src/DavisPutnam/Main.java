@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -96,6 +97,15 @@ public class Main {
             out.println(in.nextLine());
         }
         out.close();
+
+        // Copy the file to src/BackEnd/input.txt so that the BackEnd can read it
+        File backEndInputFile = new File("../BackEnd/input.txt");
+        try {
+            Files.copy(outputFile.toPath(), backEndInputFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (Exception e) {
+            System.out.println("Error copying file from DavisPutnam to BackEnd");
+            System.out.println(e);
+        }
 
     }
 
