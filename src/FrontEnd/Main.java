@@ -5,7 +5,6 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -181,7 +180,7 @@ public class Main {
             translatedClausesToNumbers.add(arrayListForClause);
         }
 
-        File outputFile = new File("output.txt");
+        File outputFile = new File("FrontEndOutput.txt");
         PrintWriter out = new PrintWriter(outputFile);
 
         // Print translated clauses, each ArrayList on its own line
@@ -206,13 +205,7 @@ public class Main {
 
         out.close();
 
-        // Copy the file to src/DavisPutnam/input.txt so that the DavisPutnam can read it
-        File davisPutnamInputFile = new File("../DavisPutnam/input.txt");
-        try {
-            Files.copy(outputFile.toPath(), davisPutnamInputFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        } catch (Exception e) {
-            System.out.println("Error copying file from FrontEnd to DavisPutnam");
-            System.out.println(e);
-        }
+        // Call DavisPutnam.Main with the output file as input
+        DavisPutnam.Main.main(new String[]{outputFile.getAbsolutePath()});
     }
 }

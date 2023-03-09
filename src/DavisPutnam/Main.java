@@ -4,8 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -17,8 +15,8 @@ public class Main {
 
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException {
         /* Initialization */
-        URL url = Main.class.getResource("input.txt");
-        Path path = Paths.get(url.toURI());
+        // URL url = Main.class.getResource("input.txt");
+        Path path = Paths.get(args[0]);
         File file = path.toFile();
         Scanner in = new Scanner(file);
         ArrayList<ArrayList<String>> clauses = new ArrayList<ArrayList<String>>();
@@ -85,7 +83,7 @@ public class Main {
         // After the results, we want to write a newLine with just "0"
         // After that, we want to copy over the contents from the input file after the "0"
 
-        File outputFile = new File("output.txt");
+        File outputFile = new File("DavisPutnamOutput.txt");
         PrintWriter out = new PrintWriter(outputFile);
         if (sortedResults.size() > 0) {
             for (String atom : sortedResults.keySet()) {
@@ -98,15 +96,8 @@ public class Main {
         }
         out.close();
 
-        // Copy the file to src/BackEnd/input.txt so that the BackEnd can read it
-        File backEndInputFile = new File("../BackEnd/input.txt");
-        try {
-            Files.copy(outputFile.toPath(), backEndInputFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        } catch (Exception e) {
-            System.out.println("Error copying file from DavisPutnam to BackEnd");
-            System.out.println(e);
-        }
-
+        // Call BackEnd.Main with the output file as input
+        BackEnd.Main.main(new String[]{outputFile.getAbsolutePath()});
     }
 
     public static LinkedHashMap<String, Boolean> davisPutnamAlgorithm() {

@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -13,10 +12,10 @@ public class Main {
 
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException {
         /* Initialization */
-        URL url = BackEnd.Main.class.getResource("input.txt");
-        Path path = Paths.get(url.toURI());
+        // URL url = BackEnd.Main.class.getResource("input.txt");
+        Path path = Paths.get(args[0]);
         File file = path.toFile();
-        File outputFile = new File("output.txt");
+        File outputFile = new File("BackEndOutput.txt");
         PrintWriter out = new PrintWriter(outputFile);
         boolean checkedFirstLineNonZero = false;
 
