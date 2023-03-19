@@ -13,6 +13,7 @@ public class Main {
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException {
         /* Initialization */
         // URL url = BackEnd.Main.class.getResource("input.txt");
+        System.out.println("================ BackEnd ================");
         Path path = Paths.get(args[0]);
         File file = path.toFile();
         File outputFile = new File("BackEndOutput.txt");

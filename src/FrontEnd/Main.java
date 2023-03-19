@@ -15,6 +15,7 @@ public class Main {
     public static int ALLOWED_STEPS = -1;
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException {
         /* Initialization */
+        System.out.println("================ FrontEnd ================");
         URL url = FrontEnd.Main.class.getResource("input.txt");
         Path path = Paths.get(url.toURI());
         File file = path.toFile();

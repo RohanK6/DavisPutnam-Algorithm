@@ -16,6 +16,7 @@ public class Main {
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException {
         /* Initialization */
         // URL url = Main.class.getResource("input.txt");
+        System.out.println("================ DavisPutnam ================");
         Path path = Paths.get(args[0]);
         File file = path.toFile();
         Scanner in = new Scanner(file);
