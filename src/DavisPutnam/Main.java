@@ -111,7 +111,7 @@ public class Main {
             LinkedHashMap<String, Boolean> bindings = currentState.getBindings();
             LinkedHashMap<String, Boolean> failedBindings = currentState.getFailedBindings();
 
-            if (tries == Integer.MAX_VALUE) break;
+            if (tries == 10000) break;
 
             // For all atoms that are NOT in bindings, set atoms to a new TreeSet
             TreeSet<String> newAtoms = new TreeSet<String>(new NumericStringComparator());
