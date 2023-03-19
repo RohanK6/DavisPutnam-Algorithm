@@ -47,8 +47,6 @@ public class Main {
             }
             clauses.add(clause);
         }
-        
-        System.out.println(atoms);
 
         /* We have the initial stateNumber (0), clauses, and bindings. We want to keep track of States
             in case we have to "pop" and revert back.
@@ -60,7 +58,6 @@ public class Main {
         LinkedHashMap<String, Boolean> dpResults = davisPutnamAlgorithm();
 
         /* Print the results */
-        System.out.println("------------------------------");
 
         if (!dpResults.isEmpty()) {
             // Check if atoms is not empty. If it is, insert them into the bindings as true
@@ -77,9 +74,6 @@ public class Main {
         TreeMap<String, Boolean> sortedResults = new TreeMap<String, Boolean>(new NumericStringComparator());
         sortedResults.putAll(copiedResults);
 
-        System.out.println("Back in Main");
-        System.out.println("Results: " + sortedResults);
-
         // We now want to write the results to a file, with the format of "atom = T/F"
         // After the results, we want to write a newLine with just "0"
         // After that, we want to copy over the contents from the input file after the "0"
@@ -88,12 +82,16 @@ public class Main {
         PrintWriter out = new PrintWriter(outputFile);
         if (sortedResults.size() > 0) {
             for (String atom : sortedResults.keySet()) {
+                System.out.println(atom + " " + ((sortedResults.get(atom) == true) ? "T" : "F"));
                 out.println(atom + " " + ((sortedResults.get(atom) == true) ? "T" : "F"));
             }
         }
+        System.out.println("0");
         out.println("0");
         while (in.hasNextLine()) {
-            out.println(in.nextLine());
+            String line = in.nextLine();
+            System.out.println(line);
+            out.println(line);
         }
         out.close();
 
@@ -105,8 +103,6 @@ public class Main {
         State baseState = states.peek();
         int tries = 0;
         while (true) {
-            System.out.println("-----------------------------");
-            System.out.println("On try: " + tries);
             /* Get the info from the current state */
             State currentState = states.peek();
             tries++;
@@ -114,9 +110,8 @@ public class Main {
             ArrayList<ArrayList<String>> clauses = currentState.getClauses();
             LinkedHashMap<String, Boolean> bindings = currentState.getBindings();
             LinkedHashMap<String, Boolean> failedBindings = currentState.getFailedBindings();
-            System.out.println(currentState);
-            System.out.println("Failed: " + failedBindings);
-            if (tries == 1000) break;
+
+            if (tries == Integer.MAX_VALUE) break;
 
             // For all atoms that are NOT in bindings, set atoms to a new TreeSet
             TreeSet<String> newAtoms = new TreeSet<String>(new NumericStringComparator());
@@ -126,13 +121,17 @@ public class Main {
                 }
             }
             atoms = newAtoms;
-            System.out.println(atoms);
 
             /* Attempt to run davis putnam on the current state */
             MixedObjectReturnType results = davisPutnam(clauses, bindings, failedBindings);
 
-            System.out.println(results);
-            
+            String justAdded = "";
+            Boolean justAddedValue = false;
+            for (Map.Entry<String, Boolean> entry : results.bindings.entrySet()) {
+                justAdded = entry.getKey();
+                justAddedValue = entry.getValue();
+            }
+
             boolean resultingClausesHaveContradictions = false;
             // Check if the resulting clauses have no contradictions
             // i.e. two clauses with just one atom that are opposites (e.g. A and -A))
@@ -171,15 +170,8 @@ public class Main {
                 }
             }
 
-            // System.out.println("Remainaing atoms: ");
-            // for (String atom : atoms) {
-            //     System.out.println(atom);
-            // }
-
-
             // We were met with no issues running the algorithm on the current state
             if (results.isPossible && !resultingClausesHaveContradictions && !containsEmptyClause) {
-                System.out.println("Success!");
                 // We want to consider it a "success" and move on
                 int nextStateNumber = stateNumber + 1;
                 State successState = new State(nextStateNumber, results.clauses, results.bindings);
@@ -189,62 +181,34 @@ public class Main {
                 if (results.clauses.isEmpty()) return results.bindings;
                 
             } else {
-                System.out.println("Failure!");
-                // Clear the failed bindings for the current state since we're reverting and changing previous bindings
-                currentState.setFailedBindings(new LinkedHashMap<String, Boolean>());
-
-                // Clearly, the current state is unfeasible, so we have to "revert"
-                states.pop();
-                // If we have no base states, go back to the initial
-                if (states.size() == 0) states.push(baseState);
-
                 // We want to record the failed binding for the state we're reverting to
                 State currentStateToRevertTo = states.peek();
                 LinkedHashMap<String, Boolean> failedBindingsForState = currentStateToRevertTo.getFailedBindings();
-                // We want to add the failed binding to the state (the most recent in bindings):
-                String failedBinding = "";
-                Boolean failedBindingValue = false;
-                for (Map.Entry<String, Boolean> entry : bindings.entrySet()) {
-                    failedBinding = entry.getKey();
-                    failedBindingValue = entry.getValue();
-                }
-                // atoms.add(failedBinding);
-                System.out.println("Adding " + failedBinding + " back to atoms");
 
                 // check that the failed binding is not already in the failed bindings for the state
-                while (failedBindingsForState.containsKey(failedBinding)) {
+                while (failedBindingsForState.containsKey(justAdded)) {
                     // This means we've exhausted both true and false in our given state, so we need to revert once more.
                     // If we're at the base state (i.e. we've exhausted all possibilities), then we're done.
                      if (states.size() == 1) {
                           break;
                      }
 
-                     // We already failed TRUE for this binding, and now we've failed FALSE, so we need to revert once more
-                    State newCurrentState = states.peek();                    // We want to get the bindings for this state and add the last binding to the failed bindings
-                    LinkedHashMap<String, Boolean> bindingsForNewCurrentState = newCurrentState.getBindings();
-                    for (Map.Entry<String, Boolean> entry : bindingsForNewCurrentState.entrySet()) {
-                        failedBinding = entry.getKey();
-                        failedBindingValue = entry.getValue();
+                    failedBindingsForState.put(justAdded, justAddedValue);
+                    states.peek().setFailedBindings(failedBindingsForState);
+
+                    for (Map.Entry<String, Boolean> entry : states.peek().getBindings().entrySet()) {
+                        justAdded = entry.getKey();
+                        justAddedValue = entry.getValue();
                     }
-                    System.out.println("Adding " + failedBinding + " back to atoms");
-                    // atoms.add(failedBinding);
+
+                    states.peek().setFailedBindings(new LinkedHashMap<>());
+
                     states.pop();
-
-                    // We want to add the failed binding to the failed bindings for the state
-                    State currentStateToRevertTo2 = states.peek();
-                    LinkedHashMap<String, Boolean> failedBindingsForState2 = currentStateToRevertTo2.getFailedBindings();
-                    failedBindingsForState2.put(failedBinding, failedBindingValue);
-
-                    currentStateToRevertTo2.setFailedBindings(failedBindingsForState2);
-
-                    for (Map.Entry<String, Boolean> entry : bindings.entrySet()) {
-                        failedBinding = entry.getKey();
-                        failedBindingValue = entry.getValue();
-                    }
+                    failedBindingsForState = states.peek().getFailedBindings();
                 }
 
                 // We want to add the failed binding to the failed bindings for the state
-                failedBindingsForState.put(failedBinding, failedBindingValue);
+                failedBindingsForState.put(justAdded, justAddedValue);
 
                 currentStateToRevertTo.setFailedBindings(failedBindingsForState);
             }
